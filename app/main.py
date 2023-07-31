@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schema
 from .database import engine, get_db
+from .utils import get_hashed_password
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -52,3 +53,19 @@ def delete_post(post_id: int, db: Session = Depends(get_db)):
     db.delete(post)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schema.UserOut)
+def create_user(user: schema.UserCreate, db: Session = Depends(get_db)):
+    new_user = models.User(**user.model_dump())
+    hashed_password = get_hashed_password(user.password)
+    user.password = hashed_password
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
+@app.get("/users", response_model=List[schema.UserOut])
+def get_users(db: Session = Depends(get_db)):
+    return db.query(models.User).all()
